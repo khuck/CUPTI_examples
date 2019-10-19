@@ -16,8 +16,8 @@
 static void __attribute__((constructor)) initTrace(void);
 static void __attribute__((destructor)) finiTrace(void);
 
-#define DEBUG_CUPTI
-#define DEBUG_CUPTI_DETAIL
+//#define DEBUG_CUPTI
+//#define DEBUG_CUPTI_DETAIL
 
 #ifdef DEBUG_CUPTI
 #define DEBUG_OUT(...) do{ fprintf( stdout, __VA_ARGS__ ); } while( false )
@@ -60,7 +60,24 @@ static void __attribute__((destructor)) finiTrace(void);
 // timestamps
 static uint64_t startTimestamp;
 
-static std::map<uint64_t,uint64_t> previous;
+void finiTrace(void) {
+  printf("Finalizing...\n");
+  cuptiActivityFlushAll(0);
+  cudaDeviceReset();
+  printf("done.\n");
+}
+
+/* make sure our static global object is used before we exit */
+struct safemap : public  std::map<uint64_t,uint64_t> {
+    virtual ~safemap() {
+        finiTrace();
+    }
+};
+
+safemap & getprev() {
+    static safemap previous;
+    return previous;
+}
 
 static const char *
 getMemcpyKindString(CUpti_ActivityMemcpyKind kind)
@@ -168,21 +185,29 @@ getComputeApiKindString(CUpti_ActivityComputeApiKind kind)
 }
 
 void testTimestamp(uint64_t _start, uint64_t _end, uint32_t context, uint32_t stream) {
-    //uint64_t start = _start - startTimestamp;
-    //uint64_t end = _end - startTimestamp;
-    uint64_t start = _start;
-    uint64_t end = _end;
+    uint64_t start = _start - startTimestamp;
+    uint64_t end = _end - startTimestamp;
+    //uint64_t start = _start;
+    //uint64_t end = _end;
     uint64_t key = ((uint64_t)(context) << 32) + stream;
-    if (previous.count(key) == 0) {
-        previous[key] = end;
-    } else if (start < previous[key]) {
+    if (getprev().count(key) == 0) {
+        getprev()[key] = end;
+    } else if (start < getprev()[key]) {
         fflush(stdout);
         fflush(stderr);
         fprintf(stderr, "------- BOGUS!\n");
+        double nano = (double)(getprev()[key] - start);
+        double seconds = nano * 1.0e-9;
+        fprintf(stderr, "Relative timestamps: %llu < %llu (%llu ns) on context %lu stream %lu\n",
+            start, getprev()[key], (getprev()[key] - start), context, stream);
+        double first = ((double)(start)) * 1.0e-9;
+        double second = ((double)(getprev()[key])) * 1.0e-9;
+        fprintf(stderr, "Relative: %f < %f (%f seconds) on context %lu stream %lu\n",
+            first, second, seconds, context, stream);
         fflush(stderr);
         raise(SIGSTOP);
     }
-    previous[key] = end;
+    getprev()[key] = end;
 }
 
 static void
@@ -437,9 +462,4 @@ initTrace(void)
   printf("done, startTimestamp = %lu\n", startTimestamp);
 }
 
-void finiTrace(void) {
-  printf("Finalizing...\n");
-  cuptiActivityFlushAll(0);
-  cudaDeviceReset();
-  printf("done.\n");
-}
+

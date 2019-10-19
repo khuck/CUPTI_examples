@@ -9,6 +9,10 @@
 #include <string.h>
 #include <vector>
 #include <thread>
+#include <unistd.h>
+
+//void finiTrace(void);
+//void initTrace(void);
 
 #define DRIVER_API_CALL(apiFuncCall)                                           \
 do {                                                                           \
@@ -32,7 +36,7 @@ do {                                                                           \
 
 #define COMPUTE_N 50000
 #define THREADS 8
-#define ITERATIONS 1000
+#define ITERATIONS 10000
 
 #ifdef TRACER
 extern void initTrace(void);
@@ -117,19 +121,24 @@ void myfunc(int deviceNum, cudaStream_t streamCommon) {
       // do pass with user stream
       do_pass(stream0);
       // do pass with common stream
-      cudaStream_t stream2;
       // do pass with temporary stream
-      RUNTIME_API_CALL(cudaStreamCreate(&stream2));
-      do_pass(stream2);
-      RUNTIME_API_CALL(cudaStreamDestroy(stream2));
+      if (i % 1000 == 0) {
+        cudaStream_t stream2;
+        RUNTIME_API_CALL(cudaStreamCreate(&stream2));
+        do_pass(stream2);
+        //RUNTIME_API_CALL(cudaStreamSynchronize(stream2));
+        RUNTIME_API_CALL(cudaStreamDestroy(stream2));
+      }
   }
-  //cudaDeviceSynchronize();
+  //RUNTIME_API_CALL(cudaStreamSynchronize(stream0));
+  //RUNTIME_API_CALL(cudaDeviceSynchronize());
   RUNTIME_API_CALL(cudaStreamDestroy(stream0));
 }
 
 int
 main(int argc, char *argv[])
 {
+  //initTrace();
   int deviceNum = 0, devCount = 0;
 
   printf("cuInit()...\n");
@@ -157,10 +166,13 @@ main(int argc, char *argv[])
   }
 
   printf("Destrying main stream...\n");
-  RUNTIME_API_CALL(cudaDeviceSynchronize());
-  RUNTIME_API_CALL(cudaSetDevice(deviceNum));
+  //RUNTIME_API_CALL(cudaDeviceSynchronize());
+  //RUNTIME_API_CALL(cudaSetDevice(deviceNum));
   RUNTIME_API_CALL(cudaStreamDestroy(stream0));
 
+  printf("Resetting the device...\n");
+  cudaDeviceReset();
+  sleep(10);
   return 0;
 }
 
