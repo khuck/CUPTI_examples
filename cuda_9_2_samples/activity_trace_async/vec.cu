@@ -5,6 +5,7 @@
  */ 
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <cupti.h>
 #include <stdio.h>
 #include <string.h>
 #include <vector>
@@ -37,6 +38,7 @@ do {                                                                           \
 #define COMPUTE_N 50000
 #define THREADS 8
 #define ITERATIONS 10000
+#define INNER_ITERATIONS (ITERATIONS/10)
 
 #ifdef TRACER
 extern void initTrace(void);
@@ -122,16 +124,23 @@ void myfunc(int deviceNum, cudaStream_t streamCommon) {
       do_pass(stream0);
       // do pass with common stream
       // do pass with temporary stream
-      if (i % 1000 == 0) {
+      if (i % INNER_ITERATIONS == 0) {
         cudaStream_t stream2;
         RUNTIME_API_CALL(cudaStreamCreate(&stream2));
         do_pass(stream2);
-        //RUNTIME_API_CALL(cudaStreamSynchronize(stream2));
+        /*
+        RUNTIME_API_CALL(cudaStreamSynchronize(stream2));
+        RUNTIME_API_CALL(cudaDeviceSynchronize());
+        cuptiActivityFlushAll(0);
+        */
         RUNTIME_API_CALL(cudaStreamDestroy(stream2));
       }
   }
-  //RUNTIME_API_CALL(cudaStreamSynchronize(stream0));
-  //RUNTIME_API_CALL(cudaDeviceSynchronize());
+  /*
+  RUNTIME_API_CALL(cudaStreamSynchronize(stream0));
+  RUNTIME_API_CALL(cudaDeviceSynchronize());
+  cuptiActivityFlushAll(0);
+  */
   RUNTIME_API_CALL(cudaStreamDestroy(stream0));
 }
 
@@ -166,8 +175,11 @@ main(int argc, char *argv[])
   }
 
   printf("Destrying main stream...\n");
-  //RUNTIME_API_CALL(cudaDeviceSynchronize());
-  //RUNTIME_API_CALL(cudaSetDevice(deviceNum));
+  /*
+  RUNTIME_API_CALL(cudaStreamSynchronize(stream0));
+  RUNTIME_API_CALL(cudaDeviceSynchronize());
+  cuptiActivityFlushAll(0);
+  */
   RUNTIME_API_CALL(cudaStreamDestroy(stream0));
 
   printf("Resetting the device...\n");

@@ -20,8 +20,8 @@ static void __attribute__((destructor)) finiTrace(void);
 //#define DEBUG_CUPTI_DETAIL
 
 #ifdef DEBUG_CUPTI
-#define DEBUG_OUT(...) do{ fprintf( stdout, __VA_ARGS__ ); } while( false )
-#define DEBUG_ERR(...) do{ fprintf( stderr, __VA_ARGS__ ); } while( false )
+#define DEBUG_OUT(...) do{ fprintf( stdout, __VA_ARGS__ ); fflush(stdout); } while( false )
+#define DEBUG_ERR(...) do{ fprintf( stderr, __VA_ARGS__ ); fflush(stderr); } while( false )
 #else
 #define DEBUG_OUT(...) do{ } while ( false )
 #define DEBUG_OUT_DETAIL(...) do{ } while ( false )
@@ -29,7 +29,7 @@ static void __attribute__((destructor)) finiTrace(void);
 #endif
 
 #ifdef DEBUG_CUPTI_DETAIL
-#define DEBUG_OUT_DETAIL(...) do{ fprintf( stdout, __VA_ARGS__ ); } while( false )
+#define DEBUG_OUT_DETAIL(...) do{ fprintf( stdout, __VA_ARGS__ ); fflush(stdout); } while( false )
 #else
 #define DEBUG_OUT_DETAIL(...) do{ } while ( false )
 #endif
@@ -289,8 +289,8 @@ printActivity(CUpti_Activity *record)
   case CUPTI_ACTIVITY_KIND_DRIVER:
     {
       CUpti_ActivityAPI *api = (CUpti_ActivityAPI *) record;
-      DEBUG_OUT_DETAIL("DRIVER cbid=%u [ %llu - %llu ] process %u, thread %u, correlation %u\n",
-             api->cbid,
+      DEBUG_OUT_DETAIL("DRIVER cbid=%u kind=%u [ %llu - %llu ] process %u, thread %u, correlation %u\n",
+             api->cbid, api->kind,
              (unsigned long long) (api->start - startTimestamp),
              (unsigned long long) (api->end - startTimestamp),
              api->processId, api->threadId, api->correlationId);
@@ -300,8 +300,8 @@ printActivity(CUpti_Activity *record)
   case CUPTI_ACTIVITY_KIND_RUNTIME:
     {
       CUpti_ActivityAPI *api = (CUpti_ActivityAPI *) record;
-      DEBUG_OUT_DETAIL("RUNTIME cbid=%u [ %llu - %llu ] process %u, thread %u, correlation %u\n",
-             api->cbid,
+      DEBUG_OUT_DETAIL("RUNTIME cbid=%u kind=%u [ %llu - %llu ] process %u, thread %u, correlation %u\n",
+             api->cbid, api->kind,
              (unsigned long long) (api->start - startTimestamp),
              (unsigned long long) (api->end - startTimestamp),
              api->processId, api->threadId, api->correlationId);
@@ -366,6 +366,14 @@ printActivity(CUpti_Activity *record)
              getActivityObjectKindString(overhead->objectKind),
              getActivityObjectKindId(overhead->objectKind, &overhead->objectId));
       testTimestamp(overhead->start, overhead->end, 0, 2);
+      break;
+    }
+  case CUPTI_ACTIVITY_KIND_STREAM:
+    {
+      CUpti_ActivityStream *stream = (CUpti_ActivityStream *) record;
+      DEBUG_OUT_DETAIL("STREAM context=%u, correlation=%u, flag=%u, priority=%u, stream=%u\n",
+             stream->contextId, stream->correlationId, stream->flag,
+             stream->priority, stream->streamId); 
       break;
     }
   default:
@@ -440,6 +448,7 @@ initTrace(void)
   CUPTI_CALL(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_MARKER));
   CUPTI_CALL(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_KERNEL));
   CUPTI_CALL(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_OVERHEAD));
+  CUPTI_CALL(cuptiActivityEnable(CUPTI_ACTIVITY_KIND_STREAM));
 
   // Register callbacks for buffer requests and for buffers completed by CUPTI.
   CUPTI_CALL(cuptiActivityRegisterCallbacks(bufferRequested, bufferCompleted));
