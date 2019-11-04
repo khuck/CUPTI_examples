@@ -1,7 +1,11 @@
 #
 # Copyright 2011-2018 NVIDIA Corporation. All rights reserved
 # 
-INCLUDES = -I../../../../include -I../../include
+NVCC:=$(shell which nvcc)
+BINDIR:=$(dir $(NVCC))
+CUDADIR:=$(BINDIR)..
+CUPTIDIR=$(CUDADIR)/extras/CUPTI
+INCLUDES=-I$(CUPTIDIR)/include -I$(CUDADIR)/include
 
 ifndef OS
  OS   := $(shell uname)
@@ -15,15 +19,15 @@ TARGET_OS ?= $(shell uname | tr A-Z a-z)
 # In the case of cross-compilation, set the libs to the correct ones under /usr/local/cuda/targets/<TARGET_ARCH>-<TARGET_OS>/lib
 
 ifeq ($(OS), Windows_NT)
-    LIB_PATH ?= ..\..\lib64
+    LIB_PATH ?= $(CUPTIDIR)\lib64
 else
     ifneq ($(TARGET_ARCH), $(HOST_ARCH))
-        INCLUDES += -I../../../../targets/$(HOST_ARCH)-$(shell uname | tr A-Z a-z)/include
-        LIB_PATH ?= ../../../../targets/$(TARGET_ARCH)-$(TARGET_OS)/lib
+        INCLUDES += -I$(CUDADIR)/targets/$(HOST_ARCH)-$(shell uname | tr A-Z a-z)/include
+        LIB_PATH ?= $(CUDADIR)/targets/$(TARGET_ARCH)-$(TARGET_OS)/lib
         TARGET_CUDA_PATH = -L $(LIB_PATH)/stubs
     else
-        EXTRAS_LIB_PATH := ../../lib64
-        LIB_PATH ?= ../../../../lib64
+        EXTRAS_LIB_PATH := $(CUPTIDIR)/lib64
+        LIB_PATH ?= $(CUDADIR)/lib64
     endif
 endif
 
@@ -41,7 +45,7 @@ else
             export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(LIB_PATH)
             LIBS = -L $(EXTRAS_LIB_PATH)
         endif
-        LIBS += $(TARGET_CUDA_PATH) -lcuda -L $(LIB_PATH) -lcupti
+        LIBS += -L $(TARGET_CUDA_PATH) -lcuda -L $(LIB_PATH) -lcupti
     endif
     OBJ = o
 endif

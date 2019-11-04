@@ -1,7 +1,11 @@
 #
 # Copyright 2011-2015 NVIDIA Corporation. All rights reserved
 # 
-INCLUDES=-I../../include
+NVCC:=$(shell which nvcc)
+BINDIR:=$(dir $(NVCC))
+CUDADIR:=$(BINDIR)..
+CUPTIDIR=$(CUDADIR)/extras/CUPTI
+INCLUDES=-I$(CUPTIDIR)/include
 
 ifndef OS
  OS   := $(shell uname)
@@ -17,8 +21,8 @@ else
         export DYLD_LIBRARY_PATH := $(DYLD_LIBRARY_PATH):../../lib
         LIBS= -Xlinker -framework -Xlinker cuda -L ../../lib -lcupti
     else
-        export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):../../lib:../../lib64
-        LIBS= -lcuda -L ../../lib -L ../../lib64 -lcupti
+        export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(CUPTIDIR)/lib:$(CUPTIDIR)/lib64
+        LIBS= -lcuda -L $(CUPTIDIR)/lib -L $(CUPTIDIR)/lib64 -lcupti
     endif
     OBJ = o
 endif

@@ -91,12 +91,10 @@ do_pass(cudaStream_t stream)
     
   RUNTIME_API_CALL(cudaMemcpyAsync(h_C, d_C, size, cudaMemcpyDeviceToHost, stream));
 
-/*
   if (stream == 0)
     RUNTIME_API_CALL(cudaDeviceSynchronize());
   else
     RUNTIME_API_CALL(cudaStreamSynchronize(stream));
-*/
 
   free(h_A);
   free(h_B);
@@ -184,7 +182,6 @@ main(int argc, char *argv[])
 
   printf("Resetting the device...\n");
   cudaDeviceReset();
-  sleep(10);
   return 0;
 }
 

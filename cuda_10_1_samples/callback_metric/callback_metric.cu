@@ -40,10 +40,7 @@ do {                                                                           \
       cuptiGetResultString(_status, &errstr);                           \
       fprintf(stderr, "%s:%d: error: function %s failed with error %s.\n", \
               __FILE__, __LINE__, #call, errstr);                       \
-      if(_status == CUPTI_ERROR_LEGACY_PROFILER_NOT_SUPPORTED)          \
-          exit(0);                                                      \
-      else                                                              \
-          exit(-1);                                                     \
+      exit(-1);                                                     \
     }                                                                   \
   } while (0)
 

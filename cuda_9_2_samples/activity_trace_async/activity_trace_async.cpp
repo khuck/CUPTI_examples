@@ -16,8 +16,8 @@
 static void __attribute__((constructor)) initTrace(void);
 static void __attribute__((destructor)) finiTrace(void);
 
-//#define DEBUG_CUPTI
-//#define DEBUG_CUPTI_DETAIL
+#define DEBUG_CUPTI
+#define DEBUG_CUPTI_DETAIL
 
 #ifdef DEBUG_CUPTI
 #define DEBUG_OUT(...) do{ fprintf( stdout, __VA_ARGS__ ); fflush(stdout); } while( false )
@@ -198,8 +198,8 @@ void testTimestamp(uint64_t _start, uint64_t _end, uint32_t context, uint32_t st
         fprintf(stderr, "------- BOGUS!\n");
         double nano = (double)(getprev()[key] - start);
         double seconds = nano * 1.0e-9;
-        fprintf(stderr, "Relative timestamps: %llu < %llu (%llu ns) on context %lu stream %lu\n",
-            start, getprev()[key], (getprev()[key] - start), context, stream);
+        fprintf(stderr, "Relative timestamps: %llu < %llu (%9.2f us) on context %lu stream %lu\n",
+            start, getprev()[key], (getprev()[key] - start)/1.e3, context, stream);
         double first = ((double)(start)) * 1.0e-9;
         double second = ((double)(getprev()[key])) * 1.0e-9;
         fprintf(stderr, "Relative: %f < %f (%f seconds) on context %lu stream %lu\n",

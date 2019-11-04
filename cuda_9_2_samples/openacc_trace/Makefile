@@ -6,23 +6,32 @@
 
 # Point to your PGI OpenACC installation's include directory.
 # PGI compiler must be in PATH.
-OPENACC_INCLUDE_PATH =
+NVCC:=$(shell which nvcc)
+PGCC:=$(shell which pgcc)
+BINDIR:=$(dir $(NVCC))
+BINDIR2:=$(dir $(PGCC))
+CUDADIR:=$(BINDIR)..
+#CUPTIDIR=$(CUDADIR)/extras/CUPTI
+CUPTIDIR=/usr/local/cuda-9.2/extras/CUPTI
+WORKDIR:=$(shell pwd)
+
+OPENACC_INCLUDE_PATH:=$(BINDIR2)..
 
 HOST_ARCH := $(shell uname -m)
 
-INCLUDES += -I../../include
-INCLUDES += -I../../../../include
+INCLUDES += -I$(CUPTIDIR)/include
+INCLUDES += -I$(CUDADIR)/include
 INCLUDES += -I$(OPENACC_INCLUDE_PATH)
 
 PGCPP       = pgc++
-PGCPP_FLAGS = -acc -ta=nvidia:cuda7.0 -Mcuda=nordc -pgf90libs
+PGCPP_FLAGS = -acc -ta=tesla:cuda9.2 -Mcuda=nordc -pgf90libs
 ifneq ($(HOST_ARCH),ppc64le)
         PGCPP_FLAGS += -tp=p7 -mp=nonuma
 else
         PGCPP_FLAGS += -DHOST_ARCH_PPC=1
 endif
 
-export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):../../lib64
+export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(CUPTIDIR)/lib64
 TRACE_LIB = libopenacc_trace.so
 
 all: openacc_app
@@ -32,8 +41,8 @@ $(TRACE_LIB): openacc_trace.cpp
 
 openacc_app: $(TRACE_LIB) openacc_app.cpp
 	$(PGCPP) $(INCLUDES) $(PGCPP_FLAGS)         \
-	-L. -L../../lib64  -lopenacc_trace -lcupti  \
-	-o $@ $^
+	-L. -L$(CUPTIDIR)/lib64  -lopenacc_trace -lcupti  \
+	-o $@ $^ -Wl,-rpath,$(WORKDIR)
 
 run: $(TRACE_LIB) openacc_app
 	ACC_PROFLIB=$(TRACE_LIB) ./openacc_app

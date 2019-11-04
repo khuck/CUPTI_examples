@@ -9,6 +9,9 @@
 #include <cupti.h>
 #include <cuda.h>
 #include <openacc.h>
+#include <map>
+#include <signal.h>
+#include <csignal> // or C++ style alternative
 
 // helper macros
 
@@ -31,27 +34,85 @@
 
 static size_t openacc_records = 0;
 
+void finalize(void);
+/* make sure our static global object is used before we exit */
+struct safemap : public  std::map<uint64_t,uint64_t> {
+    virtual ~safemap() {
+        finalize();
+    }
+};
+
+safemap & getprev() {
+    static safemap previous;
+    return previous;
+}
+
+void testTimestamp(uint64_t _start, uint64_t _end, uint32_t context, uint32_t stream) {
+    uint64_t start = _start;
+    uint64_t end = _end;
+    //uint64_t start = _start;
+    //uint64_t end = _end;
+    uint64_t key = ((uint64_t)(context) << 32) + stream;
+    if (getprev().count(key) == 0) {
+        getprev()[key] = end;
+    } else if (start < getprev()[key]) {
+        fflush(stdout);
+        fflush(stderr);
+        fprintf(stderr, "------- Overlap!\n");
+        double nano = (double)(getprev()[key] - start);
+        double seconds = nano * 1.0e-9;
+        fprintf(stderr, "Relative timestamps: %llu < %llu (%9.2f us) on context %lu stream %lu\n",
+            start, getprev()[key], (getprev()[key] - start)/1.e3, context, stream);
+        double first = ((double)(start)) * 1.0e-9;
+        double second = ((double)(getprev()[key])) * 1.0e-9;
+        fprintf(stderr, "Relative: %f < %f (%f seconds) on context %lu stream %lu\n",
+            first, second, seconds, context, stream);
+        fflush(stderr);
+        //raise(SIGSTOP);
+    }
+    getprev()[key] = end;
+}
+
+static void
+_printActivity(CUpti_Activity *record, const char * type) {
+    CUpti_ActivityOpenAcc *oacc =
+           (CUpti_ActivityOpenAcc *)record;
+
+    /* These event types cause overlaps.  Ignore them. */
+    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_ENTER_DATA) return;
+    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_COMPUTE_CONSTRUCT) return;
+    if (oacc->deviceType != acc_device_nvidia) {
+        printf("Error: OpenACC device type is %u, not %u (acc_device_nvidia)\n",
+               oacc->deviceType, acc_device_nvidia);
+        exit(-1);
+    }
+    printf("%s, Device: %lu, Context: %lu, Stream: %lu, Event Kind: %2lu, Duration: %9.2fus\n", 
+      type, oacc->cuDeviceId, oacc->cuContextId, 
+      oacc->cuStreamId, oacc->eventKind, (oacc->end-oacc->start)/1.e3);
+    testTimestamp(oacc->start, oacc->end, oacc->cuContextId, oacc->cuStreamId);
+
+    openacc_records++;
+}
+
 static void
 printActivity(CUpti_Activity *record)
 {
   switch (record->kind) {
       case CUPTI_ACTIVITY_KIND_OPENACC_DATA:
+      {
+        _printActivity(record, "DATA  ");
+        break;
+      }
       case CUPTI_ACTIVITY_KIND_OPENACC_LAUNCH:
+      {
+        _printActivity(record, "LAUNCH");
+        break;
+      }
       case CUPTI_ACTIVITY_KIND_OPENACC_OTHER:
-          {
-              CUpti_ActivityOpenAcc *oacc =
-                     (CUpti_ActivityOpenAcc *)record;
-
-              if (oacc->deviceType != acc_device_nvidia) {
-                  printf("Error: OpenACC device type is %u, not %u (acc_device_nvidia)\n",
-                         oacc->deviceType, acc_device_nvidia);
-                  exit(-1);
-              }
-
-              openacc_records++;
-          }
-          break;
-
+      {
+        _printActivity(record, "OTHER ");
+        break;
+      }
       default:
           ;
   }
