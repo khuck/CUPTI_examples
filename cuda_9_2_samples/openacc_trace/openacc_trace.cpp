@@ -79,8 +79,15 @@ _printActivity(CUpti_Activity *record, const char * type) {
            (CUpti_ActivityOpenAcc *)record;
 
     /* These event types cause overlaps.  Ignore them. */
-    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_ENTER_DATA) return;
-    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_COMPUTE_CONSTRUCT) return;
+    uint32_t stream = oacc->cuStreamId;
+    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_ENTER_DATA) stream = 0;
+    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_CREATE) return;
+    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_DELETE) return;
+    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_ALLOC) return;
+    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_FREE) return;
+    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_ENQUEUE_LAUNCH) return;
+    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_ENQUEUE_UPLOAD) return;
+    if (oacc->eventKind == CUPTI_OPENACC_EVENT_KIND_ENQUEUE_DOWNLOAD) return;
     if (oacc->deviceType != acc_device_nvidia) {
         printf("Error: OpenACC device type is %u, not %u (acc_device_nvidia)\n",
                oacc->deviceType, acc_device_nvidia);
@@ -88,7 +95,7 @@ _printActivity(CUpti_Activity *record, const char * type) {
     }
     printf("%s, Device: %lu, Context: %lu, Stream: %lu, Event Kind: %2lu, Duration: %9.2fus\n", 
       type, oacc->cuDeviceId, oacc->cuContextId, 
-      oacc->cuStreamId, oacc->eventKind, (oacc->end-oacc->start)/1.e3);
+      stream, oacc->eventKind, (oacc->end-oacc->start)/1.e3);
     testTimestamp(oacc->start, oacc->end, oacc->cuContextId, oacc->cuStreamId);
 
     openacc_records++;
